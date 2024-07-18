@@ -1,7 +1,7 @@
 # Data Integration Pipelines for NYC Payroll Data Analytics
 # Project Overview
 
-<img src="files/bikesharep3.jpeg" alt="NYC">
+<img src="files/hintergrund_newyork.jpg" alt="NYC">
 
 The City of New York would like to develop a Data Analytics platform on Azure Synapse Analytics to accomplish two primary objectives:
 
