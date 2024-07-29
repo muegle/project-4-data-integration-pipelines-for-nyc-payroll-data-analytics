@@ -190,7 +190,7 @@
 						"referenceName": "dataflow_summary",
 						"type": "DataFlowReference",
 						"parameters": {
-							"dataflow_param_fiscalyear": "'2021'"
+							"dataflow_param_fiscalyear": "2021"
 						}
 					},
 					"compute": {
