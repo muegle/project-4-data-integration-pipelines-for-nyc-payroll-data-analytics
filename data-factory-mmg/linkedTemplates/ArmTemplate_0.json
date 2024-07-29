@@ -55,6 +55,33 @@
 			"dependsOn": []
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/AzureDataLakeStorage2dirstaging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorage_mmg",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileSystem": "dirstaging"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureDataLakeStorage_mmg')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/dataset_agency_master')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
@@ -1013,6 +1040,152 @@
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/dataset_nycpayroll_2021')]",
 				"[concat(variables('factoryId'), '/datasets/dataset_nycpayroll_2021_db')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dataflow_summary')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "dataset_nycpayroll_2020_db",
+								"type": "DatasetReference"
+							},
+							"name": "sourceNycpayroll2020"
+						},
+						{
+							"dataset": {
+								"referenceName": "dataset_nycpayroll_2021_db",
+								"type": "DatasetReference"
+							},
+							"name": "sourceNycpayroll2021"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "dataset_nycpayroll_summary_db_syn",
+								"type": "DatasetReference"
+							},
+							"name": "sinkNycPayrollSsummaryDb"
+						},
+						{
+							"dataset": {
+								"referenceName": "AzureDataLakeStorage2dirstaging",
+								"type": "DatasetReference"
+							},
+							"name": "sinkAzureDataLakeStorage2dirstaging"
+						}
+					],
+					"transformations": [
+						{
+							"name": "unionPayrolls"
+						},
+						{
+							"name": "filterFiscalYear"
+						},
+						{
+							"name": "derivedColumnTotalPaid"
+						},
+						{
+							"name": "aggregateAgencyNameFiscalYear"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     dataflow_param_fiscalyear as integer (2021)",
+						"}",
+						"source(output(",
+						"          FiscalYear as integer,",
+						"          PayrollNumber as integer,",
+						"          AgencyID as string,",
+						"          AgencyName as string,",
+						"          EmployeeID as string,",
+						"          LastName as string,",
+						"          FirstName as string,",
+						"          AgencyStartDate as date,",
+						"          WorkLocationBorough as string,",
+						"          TitleCode as string,",
+						"          TitleDescription as string,",
+						"          LeaveStatusasofJune30 as string,",
+						"          BaseSalary as double,",
+						"          PayBasis as string,",
+						"          RegularHours as double,",
+						"          RegularGrossPaid as double,",
+						"          OTHours as double,",
+						"          TotalOTPaid as double,",
+						"          TotalOtherPay as double",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> sourceNycpayroll2020",
+						"source(output(",
+						"          FiscalYear as integer,",
+						"          PayrollNumber as integer,",
+						"          AgencyCode as string,",
+						"          AgencyName as string,",
+						"          EmployeeID as string,",
+						"          LastName as string,",
+						"          FirstName as string,",
+						"          AgencyStartDate as date,",
+						"          WorkLocationBorough as string,",
+						"          TitleCode as string,",
+						"          TitleDescription as string,",
+						"          LeaveStatusasofJune30 as string,",
+						"          BaseSalary as double,",
+						"          PayBasis as string,",
+						"          RegularHours as double,",
+						"          RegularGrossPaid as double,",
+						"          OTHours as double,",
+						"          TotalOTPaid as double,",
+						"          TotalOtherPay as double",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> sourceNycpayroll2021",
+						"sourceNycpayroll2020, sourceNycpayroll2021 union(byName: true)~> unionPayrolls",
+						"unionPayrolls filter(toInteger(FiscalYear) >= $dataflow_param_fiscalyear) ~> filterFiscalYear",
+						"filterFiscalYear derive(TotalPaid = RegularGrossPaid + TotalOTPaid+TotalOtherPay) ~> derivedColumnTotalPaid",
+						"derivedColumnTotalPaid aggregate(groupBy(AgencyName,",
+						"          FiscalYear),",
+						"     TotalPaid = sum(TotalPaid)) ~> aggregateAgencyNameFiscalYear",
+						"aggregateAgencyNameFiscalYear sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          FiscalYear as integer,",
+						"          AgencyName as string,",
+						"          TotalPaid as double",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError') ~> sinkNycPayrollSsummaryDb",
+						"aggregateAgencyNameFiscalYear sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     saveOrder: 1) ~> sinkAzureDataLakeStorage2dirstaging"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/dataset_nycpayroll_2020_db')]",
+				"[concat(variables('factoryId'), '/datasets/dataset_nycpayroll_2021_db')]",
+				"[concat(variables('factoryId'), '/datasets/dataset_nycpayroll_summary_db_syn')]",
+				"[concat(variables('factoryId'), '/datasets/AzureDataLakeStorage2dirstaging')]"
 			]
 		},
 		{
