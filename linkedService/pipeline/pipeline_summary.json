@@ -201,6 +201,12 @@
 				}
 			}
 		],
+		"parameters": {
+			"dataflow_param_fiscalyear": {
+				"type": "string",
+				"defaultValue": "2021"
+			}
+		},
 		"annotations": []
 	}
 }
