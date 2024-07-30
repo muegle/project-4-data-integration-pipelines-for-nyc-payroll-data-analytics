@@ -1,0 +1,9 @@
+{
+	"name": "data-factory-mmg",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "df8c320e-ca2c-49d5-a9a2-8e005444e0fe",
+		"tenantId": "f958e84a-92b8-439f-a62d-4f45996b6d07"
+	}
+}
